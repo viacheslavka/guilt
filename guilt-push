@@ -12,6 +12,7 @@ fi
 _main() {
 
 abort_flag="abort"
+commit_date=0
 
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -23,6 +24,9 @@ while [ $# -gt 0 ]; do
 			;;
 		-n)
 			num=t
+			;;
+		-d)
+			commit_date=1
 			;;
 		*)
 			break
@@ -124,7 +128,7 @@ do
 		die "Patch $p does not exist. Aborting."
 	fi
 
-	push_patch "$p" $abort_flag
+	push_patch "$p" $commit_date $abort_flag
 
 	# bail if necessary
 	if [ $? -eq 0 ]; then

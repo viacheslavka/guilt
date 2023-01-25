@@ -665,7 +665,7 @@ commit()
 	)
 }
 
-# usage: push_patch patchname [bail_action]
+# usage: push_patch patchname commit_date [bail_action]
 push_patch()
 {
 	__push_patch_bail=0
@@ -675,11 +675,17 @@ push_patch()
 
 		p="$GUILT_DIR/$branch/$1"
 		pname="$1"
-		bail_action="$2"
+		commit_date="$2"
+		bail_action="$3"
+		flags=""
 		reject="--reject"
 
 		assert_head_check
 		cd_to_toplevel
+
+		if [ "$commit_date" -ne 0 ]; then
+			flags="--committer-date-is-author-date"
+		fi
 
 		# apply the patch if and only if there is something to apply
 		if [ `do_get_patch "$p" | wc -l` -gt 0 ]; then
@@ -687,7 +693,7 @@ push_patch()
 				reject=""
 			fi
 			git apply $guilt_push_diff_context --index \
-				$reject "$p" > /dev/null 2> "$TMP_LOG"
+				$flags $reject "$p" > /dev/null 2> "$TMP_LOG"
 			__push_patch_bail=$?
 
 			if [ $__push_patch_bail -ne 0 ]; then
@@ -729,7 +735,7 @@ fold_patch()
 
 	assert_head_check
 
-	push_patch "$1"
+	push_patch "$1" 0
 
 	# merge the patch headers
 	(
