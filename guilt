@@ -22,10 +22,22 @@ case $1 in
 	;;
 esac
 
-# we change directories ourselves
-SUBDIRECTORY_OK=1
+# If we're just looking for help, there's no need to actually be in a git repo
+# Just add some function stubs and ignore all that git stuff
+if [ "$1" = "help" ]; then
+    run_help=1
+    set_reflog_action(){
+        true
+    }
+    die(){
+        true
+    }
+else
+    # we change directories ourselves
+    SUBDIRECTORY_OK=1
 
-. "$(git --exec-path)/git-sh-setup"
+    . "$(git --exec-path)/git-sh-setup"
+fi
 
 #
 # Shell library
