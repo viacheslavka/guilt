@@ -1,0 +1,116 @@
+#!/bin/sh
+#
+# Copyright (c) Viacheslav Galaktionov, 2023
+#
+
+USAGE="[toolname] [<patchname>]"
+if [ -z "$GUILT_VERSION" ]; then
+	echo "Invoking `basename "$0"` directly is no longer supported." >&2
+	exit 1
+fi
+
+_main() {
+
+SPLIT_TOOL="$GUILT_SPLIT_TOOL"
+
+case $# in
+	0)
+		patch=`get_top`
+		;;
+	1)
+		patch="$1"
+		;;
+	2)
+		SPLIT_TOOL="$1"
+		patch="$2"
+		;;
+esac
+
+[ -z "$patch" ] && die "No patch specified."
+[ -z "$SPLIT_TOOL" ] && die "No splitting tool specified."
+
+# make sure that there are no unapplied changes
+if ! must_commit_first; then
+	die "Uncommited changes detected. Refresh first."
+fi
+
+# check that patch exists in the series
+TMP_FULL_SERIES=`get_tmp_file series`
+get_full_series > "$TMP_FULL_SERIES"
+found_patch=
+while read x; do
+	if [ "$x" = "$patch" ]; then
+		found_patch="$patch"
+		break
+	fi
+done < "$TMP_FULL_SERIES"
+
+if [ -z "$found_patch" ]; then
+	TMP_MATCHES=`get_tmp_file series`
+	grep "$patch" < "$TMP_FULL_SERIES" > "$TMP_MATCHES"
+	nr=`wc -l < $TMP_MATCHES`
+	if [ $nr -gt 1 ]; then
+		echo "$patch does not uniquely identify a patch. Did you mean any of these?" >&2
+		sed 's/^/  /' "$TMP_MATCHES" >&2
+		rm -f "$TMP_MATCHES" "$TMP_FULL_SERIES"
+		exit 1
+	elif [ $nr -eq 0 ]; then
+		rm -f "$TMP_MATCHES" "$TMP_FULL_SERIES"
+		die "Patch $patch is not in the series"
+	fi
+	found_patch=`cat $TMP_MATCHES`
+	rm -f "$TMP_MATCHES"
+fi
+patch="$found_patch"
+
+if grep -x "$patch" "$applied"; then
+	last_top=`get_top`
+	guilt pop "$patch"
+fi
+
+TMP_MSG=`get_tmp_file msg`
+TMP_DIFF=`get_tmp_file diff`
+TMP_NEW_SERIES=`get_tmp_file new_series`
+
+# TODO preserve original patch's guards
+do_get_full_header "$GUILT_DIR/$branch/$patch" > "$TMP_MSG"
+do_get_patch "$GUILT_DIR/$branch/$patch" > "$TMP_DIFF"
+
+toppatch="$patch"
+
+"$SPLIT_TOOL" "$TMP_DIFF" > "$TMP_NEW_SERIES" || die "Split tool failed"
+
+mv "$GUILT_DIR/$branch/$patch" "$GUILT_DIR/$branch/$patch~"
+
+while read patchfile mark; do
+	last_mark="$mark"
+	if [ "$mark" = "." ]; then
+		last_mark="$patch"
+		cat "$TMP_MSG" "$patchfile" > "$GUILT_DIR/$branch/$patch"
+		rm "$patchfile"
+		toppatch=`grep "$patch" -A1 < "$TMP_FULL_SERIES" | tail -1`
+		[ "$toppatch" = "$patch" ] && toppatch=""
+	else
+		newname="$GUILT_DIR/$branch/$mark"
+		# TODO better error handling
+		[ -e "$newname" ] && die "Patch $mark already exists"
+
+		mv "$patchfile" "$newname"
+		series_insert_patch_before "$mark" "$toppatch"
+	fi
+done < "$TMP_NEW_SERIES"
+
+rm -f "$TMP_MSG" "$TMP_DIFF"
+rm -f "$TMP_FULL_SERIES"
+rm -f "$TMP_NEW_SERIES"
+
+if [ -n "$last_top" ]; then
+    if [ "$last_top" = "$patch" ]; then
+        guilt push "$last_mark"
+    else
+        guild push "$last_top"
+    fi
+fi
+
+}
+

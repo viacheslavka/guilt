@@ -1,0 +1,47 @@
+guilt-split(1)
+================
+
+NAME
+----
+guilt-split - Split a patch into multiple ones
+
+SYNOPSIS
+--------
+include::usage-guilt-split.txt[]
+
+DESCRIPTION
+-----------
+Run a user-specified tool that takes a patch, performs some logic and returns
+a set of files that may (but are not required to) represent that same changes
+as the original patch.
+
+The tool may ask the user for specific instructions or use some predefined
+algorithm, guilt does not care as long as it gets the filenames and names of
+resulting patches. The tool emits this information by writing the following
+lines to its stdout:
+
+	/some/patch prepatch
+	/some/other/patch .
+	/yet/another/patch postpatch1
+	/oh/forgot/another/patch postpatch2
+
+Note the '.' patch name in the example above. This signals guilt that the
+file "/some/other/patch" contains the new contents of the patch guilt-split
+was originally run on. This patch will inherit the original patch's commit
+message.
+
+By default, the tool to be used for splitting the patch is determined by
+inspecting the GUILT_SPLIT_TOOL environment variable. If the user wishes
+to use another tool, they are free to specify it as the first argument
+to the guilt-split command.
+
+Author
+------
+Written by Viacheslav Galaktionov <slavka@slavkin.site>
+
+Documentation
+-------------
+Documentation by Viacheslav Galaktionov <slavka@slavkin.site>
+
+include::footer.txt[]
+

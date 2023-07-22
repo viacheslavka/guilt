@@ -500,6 +500,18 @@ series_insert_patch()
 	mv "$series.tmp" "$series"
 }
 
+# usage: series_insert_patch_before <patchname> <nextpatch>
+series_insert_patch_before()
+{
+	awk -v dest="$2" -v new="$1" \
+		'END{if (dest == "") print new;}
+		{
+			if (dest != "" && dest == $0) print new;
+			print $0;
+		}' "$series" > "$series.tmp"
+	mv "$series.tmp" "$series"
+}
+
 # usage: series_remove_patch <patchname>
 series_remove_patch()
 {
